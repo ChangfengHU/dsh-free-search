@@ -2,105 +2,53 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  VYIBC_FIRECRAWL_ENGINE,
   buildEngineChain,
-  searchVyibcFirecrawl,
+  normalizeProviderPool,
+  providerPoolCandidates,
+  redactProviderPool,
 } from "../lib/index.js";
 
-test("free-first exhausts free engines before managed Firecrawl", () => {
+test("free-first exhausts free engines before Firecrawl", () => {
   const chain = buildEngineChain("bing", "free-first");
   assert.equal(chain[0], "bing");
-  assert.equal(chain.at(-1), VYIBC_FIRECRAWL_ENGINE);
-  assert.ok(chain.indexOf("ddg") < chain.indexOf(VYIBC_FIRECRAWL_ENGINE));
-  assert.ok(chain.indexOf("exa") < chain.indexOf(VYIBC_FIRECRAWL_ENGINE));
-  assert.ok(!chain.includes("perplexity"), "unselected paid engines must not be called automatically");
+  assert.equal(chain.at(-1), "firecrawl");
+  assert.ok(chain.indexOf("ddg") < chain.indexOf("firecrawl"));
+  assert.ok(chain.indexOf("tavily") < chain.indexOf("firecrawl"));
+  assert.ok(!chain.includes("perplexity"));
 });
 
-test("quality-first starts with managed Firecrawl and then falls back free", () => {
+test("quality-first prioritizes Tavily and Firecrawl after an explicit preference", () => {
   const chain = buildEngineChain("bing", "quality-first");
-  assert.equal(chain[0], VYIBC_FIRECRAWL_ENGINE);
-  assert.equal(chain[1], "bing");
+  assert.deepEqual(chain.slice(0, 3), ["bing", "tavily", "firecrawl"]);
   assert.ok(!chain.includes("deepseek-official"));
 });
 
-test("an explicitly selected paid engine stays first without entering automatic paid fallbacks", () => {
+test("an explicitly selected paid engine stays first", () => {
   const chain = buildEngineChain("perplexity", "free-first");
   assert.equal(chain[0], "perplexity");
   assert.ok(!chain.includes("deepseek-official"));
-  assert.equal(chain.at(-1), VYIBC_FIRECRAWL_ENGINE);
+  assert.equal(chain.at(-1), "firecrawl");
 });
 
-test("managed Firecrawl adapter calls the registered MCP tool and normalizes sources", async () => {
-  let call;
-  const tools = {
-    async execute(input) {
-      call = input;
-      return {
-        isError: false,
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            ok: true,
-            data: {
-              data: {
-                web: [{
-                  url: "https://example.com/a",
-                  title: "A",
-                  description: "evidence",
-                  publishedDate: "2026-09-19",
-                }],
-              },
-            },
-          }),
-        }],
-      };
-    },
-  };
-
-  const result = await searchVyibcFirecrawl(tools, "unused-token", "query", 5, { days: 7 });
-  assert.equal(call.name, "mcp__vyibc-firecrawl__search");
-  assert.deepEqual(call.arguments.sources, ["web"]);
-  assert.equal(call.arguments.tbs, "qdr:w");
-  assert.deepEqual(result.sources, [{
-    url: "https://example.com/a",
-    title: "A",
-    snippet: "evidence",
-    publishedAt: "2026-09-19",
-  }]);
+test("provider pool normalizes legacy strings and redacts every secret", () => {
+  const pool = normalizeProviderPool("tavily", { keys: ["secret-a", "secret-a", { secret: "secret-b", enabled: false }] });
+  assert.equal(pool.keys.length, 2);
+  assert.equal(pool.keys[1].enabled, false);
+  const view = redactProviderPool(pool);
+  assert.equal(view.count, 2);
+  assert.equal(view.enabledCount, 1);
+  assert.ok(view.keys.every((entry) => !("secret" in entry)));
+  assert.ok(!JSON.stringify(view).includes("secret-a"));
 });
 
-test("managed Firecrawl falls back to its authenticated MCP endpoint when ToolRuntime did not register it", async () => {
-  const originalFetch = globalThis.fetch;
-  let request;
-  globalThis.fetch = async (_url, init) => {
-    request = init;
-    return {
-      ok: true,
-      json: async () => ({
-        jsonrpc: "2.0",
-        id: 1,
-        result: {
-          content: [{
-            type: "text",
-            text: JSON.stringify({ ok: true, data: { data: { web: [{ url: "https://example.com/fallback" }] } } }),
-          }],
-        },
-      }),
-    };
-  };
-  try {
-    const tools = {
-      execute: async () => ({
-        isError: true,
-        content: [{ type: "text", text: 'Error: unknown tool "mcp__vyibc-firecrawl__search"' }],
-      }),
-    };
-    const result = await searchVyibcFirecrawl(tools, "secret-token", "query", 5, null);
-    assert.equal(request.headers.Authorization, "Bearer secret-token");
-    const rpc = JSON.parse(request.body);
-    assert.equal(rpc.params.name, "vyibc-firecrawl_search");
-    assert.equal(result.sources[0].url, "https://example.com/fallback");
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+test("provider pool randomizes eligible keys and skips unusable keys", () => {
+  const pool = normalizeProviderPool("tavily", { keys: [
+    { secret: "ready-a", status: "ready" },
+    { secret: "bad", status: "invalid" },
+    { secret: "spent", status: "exhausted" },
+    { secret: "disabled", status: "ready", enabled: false },
+    { secret: "ready-b", status: "unchecked" },
+  ] });
+  const candidates = providerPoolCandidates(pool, () => 1);
+  assert.deepEqual(candidates.map((entry) => entry.secret), ["ready-b", "ready-a"]);
 });

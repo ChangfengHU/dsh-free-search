@@ -3,18 +3,26 @@
 ## Outcome
 
 - Ordinary searches use free/keyless engines first.
-- Managed `vyibc-firecrawl` is first for explicit `quality-first` searches and
-  remains the final escalation for `free-first` searches.
-- Explicit engine selection stays authoritative; automatic routing does not
-  consume unrelated configured paid API keys.
+- Tavily and Firecrawl are direct Web Providers, not MCP services. Tavily is
+  first for `quality-first`; Firecrawl remains the final escalation for
+  `free-first`.
+- Provider credentials live in Fleet Vault pools. Search starts at a random
+  eligible key, rotates after authentication/quota failures and cools failed
+  keys down for five minutes.
 - `minimumSources` makes insufficient evidence trigger the next eligible
   engine instead of accepting a partial result silently.
-- Managed Firecrawl uses the registered MCP tool when available and the same
-  authenticated MCP endpoint when an older DSH profile did not register it.
+- Settings now exposes a top-level Web section with batch key import, redacted
+  fingerprints, provider health and manual refresh. Firecrawl can report exact
+  official credit usage; Tavily reports key validity because its public API
+  does not expose remaining credits.
 
 ## Verification
 
-- `pnpm test`: 5/5 routing and adapter tests passed.
+- `pnpm test`: 5/5 routing and provider-pool tests passed.
 - `node --check lib/index.js`: passed.
-- Production raw-search smoke test: `free-first` used Bing and returned three
-  sources; `quality-first` used `vyibc-firecrawl` and returned three sources.
+- Production Vault bridge: 9 Tavily keys, 0 Firecrawl keys, no secret field or
+  key prefix returned to the browser.
+- Manual Tavily refresh: 9/9 keys valid; one live Tavily search returned two
+  sources.
+- Browser verification at 1440x1000: Settings > Web loaded the provider cards,
+  both key-pool panels and the existing routing configuration.

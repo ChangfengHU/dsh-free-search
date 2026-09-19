@@ -65,7 +65,7 @@ dsh 默认的搜索 provider 依赖 DeepSeek 官方 API key（`DEEPSEEK_API_KEY`
 
 ### 免费优先与 Firecrawl 升级规则
 
-普通 `web_search` 默认使用 `free-first`：先尝试免费/匿名引擎，只有结果不足或线路失败时才升级到受控的 `vyibc-firecrawl`。以下情况应直接调用 `advanced_search` 并设置 `strategy=quality-first`：
+普通 `web_search` 默认使用 `free-first`：先尝试免费/匿名引擎，只有结果不足或线路失败时才升级到 Settings → Web 中配置的 Tavily/Firecrawl Provider。以下情况应直接调用 `advanced_search` 并设置 `strategy=quality-first`：
 
 - 深度调研、竞品梳理或需要覆盖多个来源；
 - 新闻、近期变化等强时效问题；
@@ -73,7 +73,7 @@ dsh 默认的搜索 provider 依赖 DeepSeek 官方 API key（`DEEPSEEK_API_KEY`
 - 已明确要求至少若干个独立来源（同时设置 `minimumSources`）；
 - 免费线路已经返回空结果、来源数量不足或内容质量不足。
 
-用户显式指定某个引擎时尊重该选择。自动路由不会静默消费其他已配置的付费 API Key；`vyibc-firecrawl` 不可用时回退免费引擎，并在结果中说明实际使用的引擎。
+用户显式指定某个引擎时尊重该选择。Tavily/Firecrawl 使用 Fleet Vault 密钥池并随机选择可用 Key；认证或额度失败时轮换下一枚，Provider 不可用时回退免费引擎，并在结果中说明实际使用的引擎。
 
 - **默认引擎为 `bing`**（免费且最稳定），安装后开箱即用。
 - **自动回退**：任何引擎失败（免费限流/反爬，付费缺 key/无效/网络错误）都会自动轮流尝试下一个引擎——先试其他已配 key 的付费引擎，再试免费引擎（Bing/AnySearch 等），并在结果中附带回退提示——搜索不会因引擎问题直接失败。
@@ -326,7 +326,7 @@ This plugin provides multiple free search engines with automatic fallback, compl
 
 ### Free-first and Firecrawl escalation
 
-Regular `web_search` uses `free-first`: anonymous/free engines run before managed `vyibc-firecrawl`. Call `advanced_search` with `strategy=quality-first` for deep research, current news, multi-source verification, citation-sensitive answers, or an explicit source-count requirement (`minimumSources`). An explicit engine selection remains authoritative. Automatic routing never silently consumes another configured paid API key, and falls back to free engines when managed Firecrawl is unavailable.
+Regular `web_search` uses `free-first`: anonymous/free engines run before Tavily/Firecrawl providers configured in Settings → Web. Call `advanced_search` with `strategy=quality-first` for deep research, current news, multi-source verification, citation-sensitive answers, or an explicit source-count requirement (`minimumSources`). Provider keys stay in Fleet Vault and are selected randomly; authentication or quota failures rotate to another eligible key before falling back to free engines.
 
 If this plugin has been helpful, a ⭐ on [GitHub](https://github.com/DDDMUC/dsh-free-search) would mean a lot — it's the biggest motivation for the developer to keep maintaining it. Thank you!
 
