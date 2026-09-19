@@ -1,6 +1,6 @@
 {
   "name": "dsh-free-search",
-  "version": "0.4.34-vyibc.2",
+  "version": "0.4.34-vyibc.3",
   "description": "Free-first web search for DeepSeek Harness with Fleet Vault provider pools, randomized API-key selection, time filtering, platform search, web_fetch, and a Web settings UI.",
   "type": "module",
   "main": "lib/index.js",

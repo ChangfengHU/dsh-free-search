@@ -26,3 +26,5 @@
   sources.
 - Browser verification at 1440x1000: Settings > Web loaded the provider cards,
   both key-pool panels and the existing routing configuration.
+- The retired Bing Search API card is not shown as a configurable Provider;
+  the separate keyless Bing web-result route remains available under routing.
